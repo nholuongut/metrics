@@ -1,0 +1,42 @@
+name: 📊 Update GitHub Stats + Auto Refresh Timestamp
+
+on:
+  schedule:
+    - cron: '0 0 * * *'  # Every day at 00:00 UTC
+  workflow_dispatch:
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Download GitHub Stats SVG
+        run: |
+          curl -o stats.svg "https://github-readme-stats.vercel.app/api?username=nholuongut&show_icons=true&count_private=true&include_all_commits=true"
+
+      - name: Insert GitHub Stats and Update Auto-Refresh Timestamp
+        run: |
+          # Insert GitHub stats SVG between markers
+          if grep -q "<!-- STATS-START -->" README.md; then
+            awk '/<!-- STATS-START -->/{print;exit}' README.md > new_readme.md
+            cat stats.svg >> new_readme.md
+            awk '/<!-- STATS-END -->/{p=1}p' README.md >> new_readme.md
+            mv new_readme.md README.md
+          else
+            echo -e "<!-- STATS-START -->\n" >> README.md
+            cat stats.svg >> README.md
+            echo -e "\n<!-- STATS-END -->" >> README.md
+          fi
+
+          # Update auto-refresh timestamp
+          sed -i "s|<!-- auto-refresh -->.*<!-- /auto-refresh -->|<!-- auto-refresh --> Last refresh: $(date -u +'%Y-%m-%dT%H:%M:%SZ') <!-- /auto-refresh -->|" README.md
+
+      - name: Commit & Push updated README
+        run: |
+          git config --global user.name "nholuongut"
+          git config --global user.email "luongutnho.dxc@gmail.com"
+          git add README.md
+          git diff --quiet && echo "No changes to commit" || (git commit -m "chore: update GitHub stats and timestamp" && git push)
